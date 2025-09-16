@@ -4,6 +4,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# 构建输出
+dist/
+build/
+
 # 环境变量
 .env
 .env.local
@@ -15,12 +19,15 @@ yarn-error.log*
 logs/
 *.log
 
-# 上传文件
-uploads/
+# 运行时数据
+pids/
+*.pid
+*.seed
+*.pid.lock
 
-# 临时文件
-tmp/
-temp/
+# 覆盖率目录
+coverage/
+.nyc_output/
 
 # IDE
 .vscode/
@@ -32,10 +39,5 @@ temp/
 .DS_Store
 Thumbs.db
 
-# 数据库
-*.sqlite
-*.db
-
-# 构建输出
-dist/
-build/
+# TypeScript
+*.tsbuildinfo
