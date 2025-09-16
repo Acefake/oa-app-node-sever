@@ -13,9 +13,9 @@ let ApprovalModel: ModelStatic<ApprovalInstance> & {
 
 // 定义审批状态枚举
 export enum ApprovalStatus {
-  PENDING = 0, // 待审批
-  APPROVED = 1, // 通过
-  REJECTED = 2 // 拒绝
+  PENDING = 1, // 待审批
+  APPROVED = 4, // 已通过
+  REJECTED = 5 // 已拒绝
 }
 
 // 定义Approval属性的接口
@@ -28,6 +28,7 @@ export interface ApprovalAttributes {
   applyTime: Date
   approveTime?: Date
   status: ApprovalStatus
+  remark?: string
 }
 
 // 定义创建Approval时可选的属性
@@ -94,6 +95,11 @@ ApprovalModel = sequelize.define<ApprovalInstance>(
       allowNull: false,
       defaultValue: ApprovalStatus.PENDING,
       comment: '状态（0=待审批，1=通过，2=拒绝）'
+    },
+    remark: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      comment: '审批备注'
     }
   },
   {

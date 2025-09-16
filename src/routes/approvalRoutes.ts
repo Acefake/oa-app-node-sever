@@ -4,9 +4,7 @@ import {
   getApprovals,
   getApprovalById,
   processApproval,
-  deleteApproval,
-  getMyApprovals,
-  getPendingApprovals
+  deleteApproval
 } from '../controllers/approvalController'
 import { authenticateToken } from '../middleware/auth'
 import { validateApprovalCreation } from '../middleware/validation'
@@ -18,10 +16,8 @@ router.use(authenticateToken)
 
 router.post('/create', validateApprovalCreation, createApproval)
 router.get('/list', getApprovals)
-router.get('/myList', getMyApprovals)
-router.get('/pending', getPendingApprovals)
 router.get('/detail/:id', getApprovalById)
-router.patch('/process/:id', processApproval)
+router.post('/process', processApproval)
 router.delete('/delete/:id', deleteApproval)
 
 export default router

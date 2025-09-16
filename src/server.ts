@@ -10,8 +10,8 @@ const startServer = async () => {
     await sequelize.authenticate()
     console.log('✅ 数据库连接成功')
 
-    // 同步数据库模型
-    await sequelize.sync({ force: true })
+    // 同步数据库模型（不强制重建表，保持现有数据）
+    await sequelize.sync({ force: false })
     console.log('✅ 数据库模型同步完成')
 
     // 启动HTTP服务器

@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express'
+import { Op } from 'sequelize'
 import { Approval, ApprovalStatus } from '../models/Approval'
 import { User } from '../models/User'
 import { AppError } from '../middleware/errorHandler'
@@ -11,6 +12,7 @@ export const createApproval = async (
 ): Promise<void> => {
   try {
     const { title, content, approverId } = req.body
+
     const applicantId = req.user?.id
 
     // 验证审批人是否存在
@@ -58,33 +60,57 @@ export const createApproval = async (
   }
 }
 
-// 获取审批列表
+// 获取待审批列表
 export const getApprovals = async (
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { page = 1, limit = 10, status, applicantId, approverId } = req.query
+    const { page = 1, limit = 10, type = 'pending' } = req.query
     const offset = (Number(page) - 1) * Number(limit)
 
-    // 构建查询条件
-    const where: any = {}
-    if (status !== undefined) {
-      where.status = Number(status)
+    const userId = req.user?.id
+    if (!userId) {
+      throw new AppError('用户未登录', 401)
     }
-    if (applicantId) {
-      where.applicantId = Number(applicantId)
-    }
-    if (approverId) {
-      where.approverId = Number(approverId)
+
+    let whereCondition: any = {}
+    let orderBy: any = [['applyTime', 'DESC']]
+
+    // 根据type参数确定查询条件
+    switch (type) {
+      case '1':
+        // 待我审批：我是审批人且状态为待审批
+        whereCondition = {
+          approverId: userId,
+          status: ApprovalStatus.PENDING
+        }
+        break
+      case '2':
+        // 我的历史审批：我是审批人且状态不为待审批
+        whereCondition = {
+          approverId: userId,
+          status: {
+            [Op.ne]: ApprovalStatus.PENDING
+          }
+        }
+        break
+      case '3':
+        // 我发起的审批：我是申请人
+        whereCondition = {
+          applicantId: userId
+        }
+        break
+      default:
+        throw new AppError('无效的查询类型', 400)
     }
 
     const { count, rows: approvals } = await Approval.findAndCountAll({
-      where,
+      where: whereCondition,
       limit: Number(limit),
       offset,
-      order: [['applyTime', 'DESC']],
+      order: orderBy,
       include: [
         {
           model: User,
@@ -103,13 +129,15 @@ export const getApprovals = async (
       code: 200,
       msg: '获取成功',
       data: {
-        approvals: approvals.map(approval => approval.toJSON()),
-        pagination: {
-          total: count,
-          page: Number(page),
-          limit: Number(limit),
-          pages: Math.ceil(count / Number(limit))
-        }
+        list: approvals.map(approval => approval.toJSON()),
+        total: count
+        // pagination: {
+        //   total: count,
+        //   page: Number(page),
+        //   limit: Number(limit),
+        //   pages: Math.ceil(count / Number(limit))
+        // },
+        // type: type // 返回当前查询类型
       }
     })
   } catch (error) {
@@ -162,8 +190,7 @@ export const processApproval = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { id } = req.params
-    const { status } = req.body
+    const { id, status, remark } = req.body
     const approverId = req.user?.id
 
     const approval = await Approval.findByPk(Number(id))
@@ -181,18 +208,10 @@ export const processApproval = async (
       throw new AppError('此审批申请已处理', 400)
     }
 
-    // 验证状态值
-    if (
-      ![ApprovalStatus.APPROVED, ApprovalStatus.REJECTED].includes(
-        Number(status)
-      )
-    ) {
-      throw new AppError('无效的审批状态', 400)
-    }
-
     await approval.update({
       status: Number(status),
-      approveTime: new Date()
+      approveTime: new Date(),
+      remark
     })
 
     // 重新获取包含关联数据的审批
@@ -251,110 +270,6 @@ export const deleteApproval = async (
       code: 200,
       msg: '审批申请删除成功',
       data: null
-    })
-  } catch (error) {
-    next(error)
-  }
-}
-
-// 获取我的审批申请
-export const getMyApprovals = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    const { page = 1, limit = 10, status } = req.query
-    const offset = (Number(page) - 1) * Number(limit)
-    const userId = req.user?.id
-
-    const where: any = { applicantId: userId }
-    if (status !== undefined) {
-      where.status = Number(status)
-    }
-
-    const { count, rows: approvals } = await Approval.findAndCountAll({
-      where,
-      limit: Number(limit),
-      offset,
-      order: [['applyTime', 'DESC']],
-      include: [
-        {
-          model: User,
-          as: 'applicant',
-          attributes: ['id', 'username', 'realName']
-        },
-        {
-          model: User,
-          as: 'approver',
-          attributes: ['id', 'username', 'realName']
-        }
-      ]
-    })
-
-    res.json({
-      code: 200,
-      msg: '获取成功',
-      data: {
-        approvals: approvals.map(approval => approval.toJSON()),
-        pagination: {
-          total: count,
-          page: Number(page),
-          limit: Number(limit),
-          pages: Math.ceil(count / Number(limit))
-        }
-      }
-    })
-  } catch (error) {
-    next(error)
-  }
-}
-
-// 获取待我审批的申请
-export const getPendingApprovals = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    const { page = 1, limit = 10 } = req.query
-    const offset = (Number(page) - 1) * Number(limit)
-    const userId = req.user?.id
-
-    const { count, rows: approvals } = await Approval.findAndCountAll({
-      where: {
-        approverId: userId,
-        status: ApprovalStatus.PENDING
-      },
-      limit: Number(limit),
-      offset,
-      order: [['applyTime', 'DESC']],
-      include: [
-        {
-          model: User,
-          as: 'applicant',
-          attributes: ['id', 'username', 'realName']
-        },
-        {
-          model: User,
-          as: 'approver',
-          attributes: ['id', 'username', 'realName']
-        }
-      ]
-    })
-
-    res.json({
-      code: 200,
-      msg: '获取成功',
-      data: {
-        approvals: approvals.map(approval => approval.toJSON()),
-        pagination: {
-          total: count,
-          page: Number(page),
-          limit: Number(limit),
-          pages: Math.ceil(count / Number(limit))
-        }
-      }
     })
   } catch (error) {
     next(error)

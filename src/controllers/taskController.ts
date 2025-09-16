@@ -2,9 +2,7 @@ import { Request, Response, NextFunction } from 'express'
 import { Task, TaskStatus } from '../models/Task'
 import { User } from '../models/User'
 import { AppError } from '../middleware/errorHandler'
-import { Notice, NoticeType } from '../models/Notice'
-import { createApproval } from './approvalController'
-import { ApprovalStatus } from '../models/Approval'
+import { Approval, ApprovalStatus } from '../models/Approval'
 
 // 创建任务
 export const createTask = async (
@@ -47,7 +45,15 @@ export const createTask = async (
     })
 
     if (assigneeId) {
-      await createApproval(req, res, next)
+      const approval = await Approval.create({
+        title: task.title,
+        content: task.content,
+        applicantId: creatorId!,
+        approverId: assigneeId,
+        status: ApprovalStatus.PENDING
+      })
+
+      console.log(approval)
     }
 
     res.status(201).json({
