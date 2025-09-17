@@ -34,6 +34,16 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 // 解析Cookie
 app.use(cookieParser())
 
+// 健康检查端点
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development'
+  })
+})
+
 // 静态文件服务
 app.use('/uploads', express.static('uploads'))
 
